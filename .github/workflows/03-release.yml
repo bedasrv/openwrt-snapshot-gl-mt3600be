@@ -1,6 +1,7 @@
 name: MT3600BE Release Draft
 
 on:
+  workflow_dispatch:
   workflow_run:
     workflows: ["MT3600BE Build"]
     types:
@@ -12,7 +13,7 @@ permissions:
 
 jobs:
   release:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-22.04
 
     steps:
