@@ -1,4 +1,4 @@
-name: MT3600BE Build (SDK)
+name: MT3600BE Build
 
 on:
   workflow_dispatch:
@@ -22,93 +22,38 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
-      - name: Install deps
-        run: sudo apt-get update && sudo apt-get install -y zstd
-
-      # ── SDK: compile custom packages (kernel modules + userspace) ──
-
-      - name: Download OpenWrt SDK
+      - name: Install build deps
         run: |
-          BASE="https://downloads.openwrt.org/snapshots/targets/mediatek/filogic"
-          URL=$(curl -s "$BASE/" | grep -oP 'href="openwrt-sdk-mediatek-filogic[^"]+\.tar\.zst"' | head -1 | sed 's/href="//;s/"$//')
-          echo "SDK: $URL"
-          curl -fsLO "$BASE/$URL"
-          tar -I zstd -xf openwrt-sdk-*.tar.zst
-          rm openwrt-sdk-*.tar.zst
-          mv openwrt-sdk-* sdk
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential clang flex bison g++ gawk gcc-multilib g++-multilib \
+            gettext git libncurses5-dev libssl-dev python3-distutils rsync unzip \
+            zlib1g-dev file wget
 
-      - name: Add custom feeds
+      - name: Update feeds
         run: |
-          # trv-portal (uses openwrt/ subdir in repo)
-          echo "src-git trvportal https://github.com/bedasrv/trv-portal.git" >> sdk/feeds.conf.default
-          # amneziawg (kernel-tree copy approach, compatible with 6.12)
-          echo "src-git amneziawg https://github.com/bedasrv/amneziawg-openwrt.git" >> sdk/feeds.conf.default
-
-      - name: Compile custom packages
-        run: |
-          cd sdk
           ./scripts/feeds update -a
-          ./scripts/feeds install trv-portal luci-app-trv-portal kmod-amneziawg amneziawg-tools luci-proto-amneziawg
+          ./scripts/feeds install -a
+
+      - name: Build firmware
+        run: |
+          cp configs/mt3600be.seed .config
           make defconfig
-          make package/trv-portal/compile -j$(nproc) V=s
-          make package/luci-app-trv-portal/compile -j$(nproc) V=s
-          make package/kmod-amneziawg/compile -j$(nproc) V=s
-          make package/amneziawg-tools/compile -j$(nproc) V=s
-          make package/luci-proto-amneziawg/compile -j$(nproc) V=s
+          make -j$(nproc) || make -j1 V=s
 
-      - name: Stage custom packages
+      - name: Package firmware
         run: |
-          mkdir -p staging
-          cp sdk/bin/packages/aarch64_cortex-a53/trvportal/*.apk staging/ 2>/dev/null || true
-          cp sdk/bin/packages/aarch64_cortex-a53/amneziawg/*.apk staging/ 2>/dev/null || true
-          cp sdk/bin/targets/mediatek/filogic/packages/kmod-amneziawg*.apk staging/ 2>/dev/null || true
-          echo "Staged packages:"
-          ls -la staging/
-
-      # ── ImageBuilder: assemble firmware with all packages ──
-
-      - name: Download ImageBuilder
-        run: |
-          BASE="https://downloads.openwrt.org/snapshots/targets/mediatek/filogic"
-          URL=$(curl -s "$BASE/" | grep -oP 'href="openwrt-imagebuilder-mediatek-filogic[^"]+\.tar\.zst"' | head -1 | sed 's/href="//;s/"$//')
-          echo "ImageBuilder: $URL"
-          curl -fsLO "$BASE/$URL"
-          tar -I zstd -xf openwrt-imagebuilder-*.tar.zst
-          rm openwrt-imagebuilder-*.tar.zst
-          mv openwrt-imagebuilder-* ib
-
-      - name: Inject custom packages
-        run: |
-          cp staging/*.apk ib/packages/
-          cd ib
-          apk index -o packages/Packages.adb packages/*.apk 2>/dev/null || true
-          echo "src file packages" >> repositories.conf
-
-      - name: Assemble firmware
-        run: |
-          cd ib
-          make image \
-            PROFILE=glinet_gl-mt3600be \
-            PACKAGES="modemmanager mwan3 luci-app-mwan3 speedtest-go openclash luci-app-openclash trv-portal luci-app-trv-portal kmod-amneziawg amneziawg-tools luci-proto-amneziawg" \
-            FILES="$GITHUB_WORKSPACE/files" \
-            BIN_DIR="$GITHUB_WORKSPACE/out"
-
-      - name: Package release artifacts
-        run: |
-          FW=$(find out -name '*glinet_gl-mt3600be*squashfs-sysupgrade.bin' | head -1)
-          if [ -z "$FW" ]; then
-            echo "ERROR: firmware not found"
-            find out -name '*.bin' 2>/dev/null || echo "No .bin files"
-            exit 1
-          fi
-          VERSION=$(date -u +%y%m%d%H)
-          mkdir -p release
-          cp "$FW" "release/${VERSION}.bin"
-          sha256sum "release/${VERSION}.bin" | awk '{print $1}' > "release/${VERSION}.sha"
-          echo "Firmware: ${VERSION}.bin ($(stat -c%s "release/${VERSION}.bin") bytes)"
+          set -e
+          FW="$(ls bin/targets/*/*/*glinet_gl-mt3600be*-squashfs-sysupgrade.bin | head -n 1)"
+          test -f "$FW"
+          VERSION="$(date -u +%y%m%d%H)"
+          mkdir -p out
+          cp "$FW" "out/${VERSION}.bin"
+          sha256sum "out/${VERSION}.bin" | awk '{print $1}' > "out/${VERSION}.sha"
+          echo "Firmware: ${VERSION}.bin ($(stat -c%s "out/${VERSION}.bin") bytes)"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: mt3600be-firmware
-          path: release/*
+          path: out/*
