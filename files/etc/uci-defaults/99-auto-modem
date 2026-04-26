@@ -1,0 +1,28 @@
+#!/bin/sh
+# First-boot modem auto-configuration
+# Creates wwan interface for plug-and-play USB modem support
+# Runs once, then deletes itself
+
+# Skip if no modemmanager installed
+[ -x /usr/sbin/ModemManager ] || exit 0
+
+uci -q delete network.wwan
+uci set network.wwan=interface
+uci set network.wwan.proto='modemmanager'
+uci set network.wwan.apn='internet'
+uci set network.wwan.metric='10'
+uci set network.wwan.iptype='ipv4'
+uci set network.wwan.peerdns='1'
+uci commit network
+
+# Add wwan to wan firewall zone
+if uci -q get firewall.@zone[1].name 2>/dev/null | grep -q wan; then
+	uci add_list firewall.@zone[1].network='wwan'
+	uci commit firewall
+fi
+
+# Enable services
+/etc/init.d/modemmanager enable 2>/dev/null
+/etc/init.d/auto-apn enable 2>/dev/null
+
+exit 0
