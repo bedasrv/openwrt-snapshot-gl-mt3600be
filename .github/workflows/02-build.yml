@@ -49,6 +49,7 @@ jobs:
           cd sdk
           ./scripts/feeds update -a
           ./scripts/feeds install trv-portal luci-app-trv-portal kmod-amneziawg amneziawg-tools luci-proto-amneziawg
+          make defconfig
           make package/trv-portal/compile -j$(nproc) V=s
           make package/luci-app-trv-portal/compile -j$(nproc) V=s
           make package/kmod-amneziawg/compile -j$(nproc) V=s
