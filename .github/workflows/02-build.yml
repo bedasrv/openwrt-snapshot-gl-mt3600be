@@ -40,7 +40,7 @@ jobs:
       - name: Add custom feeds
         run: |
           # trv-portal (uses openwrt/ subdir in repo)
-          echo "src-git trvportal https://github.com/bedasrv/trv-portal.git^openwrt" >> sdk/feeds.conf.default
+          echo "src-git trvportal https://github.com/bedasrv/trv-portal.git" >> sdk/feeds.conf.default
           # amneziawg (kernel-tree copy approach, compatible with 6.12)
           echo "src-git amneziawg https://github.com/bedasrv/amneziawg-openwrt.git" >> sdk/feeds.conf.default
 
