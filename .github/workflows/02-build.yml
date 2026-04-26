@@ -39,7 +39,7 @@ jobs:
         run: |
           cp configs/mt3600be.seed .config
           make defconfig
-          make -j$(nproc) || make -j1 V=s
+          make -j$(nproc) || make -j$(nproc) V=s
 
       - name: Package firmware artifact
         run: |
