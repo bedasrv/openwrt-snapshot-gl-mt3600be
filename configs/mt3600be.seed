@@ -20,6 +20,7 @@ CONFIG_PACKAGE_mwan3=y
 CONFIG_PACKAGE_luci-app-mwan3=y
 CONFIG_PACKAGE_speedtest-go=y
 CONFIG_PACKAGE_trv-portal=y
+CONFIG_PACKAGE_luci-app-trv-portal=y
 CONFIG_PACKAGE_openclash=y
 CONFIG_PACKAGE_luci-app-openclash=y
 # AmneziaWG
