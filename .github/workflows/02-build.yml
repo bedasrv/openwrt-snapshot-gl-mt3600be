@@ -33,13 +33,13 @@ jobs:
       - name: Feeds
         run: |
           ./scripts/feeds update -a
-          ./scripts/feeds install -a
+          ./scripts/feeds install modemmanager mwan3 luci-app-mwan3 speedtest-go trv-portal openclash luci-app-openclash kmod-amneziawg amneziawg-tools luci-proto-amneziawg
 
       - name: Build firmware
         run: |
           cp configs/mt3600be.seed .config
           make defconfig
-          make -j"$(nproc)" || make -j1 V=s
+          make -j$(nproc) V=s
 
       - name: Package firmware artifact
         run: |
